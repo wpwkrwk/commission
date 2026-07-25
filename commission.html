@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>피벗 포인트 시스템 타이머 - 빵파레 포함</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #f5f5f5; overflow: hidden; }
+        
+        @keyframes start-head { 0% { transform: translateY(0); } 100% { transform: translateY(5px); } }
+        @keyframes start-parts { 0% { transform: translateY(0); } 100% { transform: translateY(20px); } }
+        @keyframes mouse-bounce { 0% { transform: translateY(0); } 100% { transform: translateY(15px); } }
+        
+        @keyframes head-rock { 0%, 100% { transform: translateY(5px) rotate(0deg); } 50% { transform: translateY(5px) rotate(3deg); } }
+        
+        @keyframes loop-hand-l { 
+            0%, 100% { transform: rotate(0deg); } 
+            50% { transform: rotate(5deg); } 
+        }
+        @keyframes loop-hand-r { 
+            0%, 100% { transform: translateX(0px) translateY(0px) rotate(0deg); } 
+            15% { transform: translateX(-15px) translateY(-8px) rotate(5deg); }
+            25% { transform: translateX(-8px) translateY(-14px) rotate(8deg); }
+            35% { transform: translateX(-18px) translateY(-10px) rotate(4deg); }
+            45% { transform: translateX(-10px) translateY(-15px) rotate(9deg); }
+            55% { transform: translateX(5px) translateY(-12px) rotate(12deg); }
+            65% { transform: translateX(12px) translateY(-16px) rotate(15deg); }
+            75% { transform: translateX(3px) translateY(-10px) rotate(10deg); }
+            85% { transform: translateX(10px) translateY(-14px) rotate(14deg); }
+        }
+        
+        /* 대기 상태(Idle) 애니메이션 */
+        @keyframes idle-look-around {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            30% { transform: translateY(2px) rotate(-2deg); }
+            70% { transform: translateY(2px) rotate(2deg); }
+        }
+        @keyframes idle-hand-l {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(4deg); }
+        }
+        @keyframes idle-hand-r {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(-4deg); }
+        }
+
+        /* 눈 깜빡임 싱크 키프레임 */
+        @keyframes blink-sync {
+            0%, 88%, 100% {
+                --opacity-open: 1;
+                --opacity-closed: 0;
+            }
+            92%, 98% {
+                --opacity-open: 0;
+                --opacity-closed: 1;
+            }
+        }
+
+        @keyframes stretch-shiver {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-1.5px, 1.5px) rotate(-1deg); }
+            40% { transform: translate(1.5px, -1.5px) rotate(1deg); }
+            60% { transform: translate(-1.5px, -1.5px) rotate(0deg); }
+            80% { transform: translate(1.5px, 1.5px) rotate(1deg); }
+        }
+
+        @keyframes stretch-hand-l {
+            0% { transform: translateX(0px) translateY(0px) rotate(0deg); }
+            100% { transform: translateX(-30px) translateY(-80px) rotate(0deg); }
+        }
+        @keyframes stretch-hand-r {
+            0% { transform: translateX(0px) translateY(0px) rotate(0deg); }
+            100% { transform: translateX(30px) translateY(-80px) rotate(0deg); }
+        }
+
+        @keyframes stretch-blink-sync {
+            0%, 10%, 90%, 100% {
+                --opacity-open: 1;
+                --opacity-closed: 0;
+            }
+            15%, 85% {
+                --opacity-open: 0;
+                --opacity-closed: 1;
+            }
+        }
+
+        /* 타이머 종료 후 1단계: 만세하고 부르르 떠는 모션 (0.8초) */
+        @keyframes finish-intro-shiver {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            20% { transform: translate(-2px, 2px) scale(1.02) rotate(-2deg); }
+            40% { transform: translate(2px, -2px) scale(0.98) rotate(2deg); }
+            60% { transform: translate(-2px, -2px) scale(1.02) rotate(-1deg); }
+            80% { transform: translate(2px, 2px) scale(0.98) rotate(1deg); }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+        }
+
+        @keyframes finish-hand-l {
+            0%, 100% { transform: translateX(-30px) translateY(-80px) rotate(0deg); }
+            50% { transform: translateX(-35px) translateY(-85px) rotate(-8deg); }
+        }
+        @keyframes finish-hand-r {
+            0%, 100% { transform: translateX(30px) translateY(-80px) rotate(0deg); }
+            50% { transform: translateX(35px) translateY(-85px) rotate(8deg); }
+        }
+        @keyframes finish-body-sway {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
+        }
+
+        /* 빵파레(Confetti) 애니메이션 스타일 */
+        .confetti-wrapper {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 300px;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+        .is-finished-loop .confetti-wrapper,
+        .is-finished-intro .confetti-wrapper {
+            display: block;
+        }
+
+        .confetti {
+            position: absolute;
+            top: 150px;
+            left: 150px;
+            width: 10px;
+            height: 20px;
+            background-color: #ff0;
+            animation: explode 1.5s ease-out infinite;
+        }
+
+        .confetti:nth-child(odd) { background-color: #ff5252; width: 8px; height: 16px; }
+        .confetti:nth-child(even) { background-color: #4caf50; }
+        .confetti:nth-child(3n) { background-color: #ffeb3b; width: 12px; height: 12px; border-radius: 50%; }
+        .confetti:nth-child(4n) { background-color: #00bcd4; }
+        .confetti:nth-child(5n) { background-color: #e91e63; }
+
+        .confetti:nth-child(1)  { --x: -150px; --y: -180px; animation-delay: 0.1s; }
+        .confetti:nth-child(2)  { --x:  180px; --y: -200px; animation-delay: 0.2s; }
+        .confetti:nth-child(3)  { --x: -220px; --y:  -50px; animation-delay: 0.15s; }
+        .confetti:nth-child(4)  { --x:  220px; --y:  -80px; animation-delay: 0.25s; }
+        .confetti:nth-child(5)  { --x: -100px; --y: -240px; animation-delay: 0.05s; }
+        .confetti:nth-child(6)  { --x:  120px; --y: -220px; animation-delay: 0.3s; }
+        .confetti:nth-child(7)  { --x: -180px; --y: -130px; animation-delay: 0.12s; }
+        .confetti:nth-child(8)  { --x:  180px; --y: -150px; animation-delay: 0.22s; }
+        .confetti:nth-child(9)  { --x:  -40px; --y: -260px; animation-delay: 0.08s; }
+        .confetti:nth-child(10) { --x:   40px; --y: -280px; animation-delay: 0.18s; }
+
+        @keyframes explode {
+            0% {
+                transform: translate(0, 0) scale(0.5);
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--x), var(--y)) rotate(720deg) scale(1);
+                opacity: 0;
+            }
+        }
+
+        .face-part { position: absolute; top: 0; left: 0; width: 100%; transition: transform 0.8s ease-out; }
+        .rotatable-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        .anim-eye-group { animation: blink-sync 3s infinite; }
+        #eyeOpen { opacity: var(--opacity-open, 1); }
+        #eyeClosed { opacity: var(--opacity-closed, 0); }
+        #eyeFinished { opacity: 0; }
+
+        .mouse-default { opacity: 1; }
+        .mouse-finished { opacity: 0; }
+
+        .is-idle .head-group { animation: idle-look-around 4s infinite ease-in-out; }
+        .is-idle .anim-hand-l { animation: idle-hand-l 3s infinite ease-in-out; }
+        .is-idle .anim-hand-r { animation: idle-hand-r 3.5s infinite ease-in-out; }
+
+        .is-finished-intro .anim-eye-group { animation: none !important; }
+        .is-finished-intro #eyeOpen, .is-finished-intro #eyeClosed { opacity: 0; }
+        .is-finished-intro #eyeFinished { opacity: 1; }
+        .is-finished-intro .mouse-default { opacity: 0; }
+        .is-finished-intro .mouse-finished { opacity: 1; }
+        .is-finished-intro .character-container { animation: finish-intro-shiver 0.8s ease-in-out forwards; transform-origin: center bottom; }
+        .is-finished-intro .anim-hand-l { animation: stretch-hand-l 0.8s ease-in-out forwards; }
+        .is-finished-intro .anim-hand-r { animation: stretch-hand-r 0.8s ease-in-out forwards; }
+
+        .is-finished-loop .anim-eye-group { animation: none !important; }
+        .is-finished-loop #eyeOpen, .is-finished-loop #eyeClosed { opacity: 0; }
+        .is-finished-loop #eyeFinished { opacity: 1; }
+        .is-finished-loop .mouse-default { opacity: 0; }
+        .is-finished-loop .mouse-finished { opacity: 1; }
+        .is-finished-loop .character-container { animation: finish-body-sway 1s infinite ease-in-out; transform-origin: center bottom; }
+        .is-finished-loop .anim-hand-l { 
+            animation: finish-hand-l 0.8s infinite ease-in-out; 
+            transform: translateX(-30px) translateY(-80px);
+        }
+        .is-finished-loop .anim-hand-r { 
+            animation: finish-hand-r 0.8s infinite ease-in-out; 
+            transform: translateX(30px) translateY(-80px);
+        }
+
+        .anim-startup #face { animation: start-head 0.6s ease-out forwards; }
+        .anim-startup #glasses, .anim-startup #eyeOpen, .anim-startup #eyebrow { 
+            animation: start-parts 0.6s ease-out forwards; 
+        }
+        .anim-startup .mouse-default { animation: mouse-bounce 0.6s ease-out forwards; }
+        
+        .is-looping #face { transform: translateY(0px); }
+        .is-looping #glasses, .is-looping #eyeOpen, .is-looping #eyebrow, .is-looping .mouse-default, .is-looping #eyeClosed { 
+            transform: translateY(15px); 
+        }
+
+        .is-looping .head-group { animation: head-rock 3s infinite ease-in-out; }
+        .is-looping .anim-hand-l { animation: loop-hand-l 2.2s infinite ease-in-out; }
+        .is-looping .anim-hand-r { animation: loop-hand-r 3.5s infinite ease-in-out; }
+
+        .is-stretching .character-container { animation: stretch-shiver 2.5s ease-in-out forwards; }
+        .is-stretching .anim-hand-l { animation: stretch-hand-l 2.5s ease-in-out forwards; }
+        .is-stretching .anim-hand-r { animation: stretch-hand-r 2.5s ease-in-out forwards; }
+        .is-stretching .rotatable-wrapper.anim-eye-group { animation: stretch-blink-sync 2.5s ease-in-out forwards !important; }
+
+        .character-container { transform: scale(0.75); transform-origin: center; margin-left: -50px; position: relative; }
+        .main-wrapper { display: flex; align-items: center; }
+        .timer-wrapper { width: 500px; height: 500px; border: 13px solid #1b1c2f; border-radius: 50%; overflow: hidden; position: relative; left: 130px; }
+        .timer-bg-top { position: absolute; width: 500px; height: 500px; border-radius: 50%; background-image: url('https://i.pinimg.com/736x/0a/ed/db/0aeddbcfa20edeafd04ea2933b3aaa42.jpg'); background-size: cover; }
+        .timer-text { position: absolute; width: 500px; height: 500px; display: flex; justify-content: center; align-items: center; font-size: 5rem; font-weight: 700; color: #333; }
+        .container { position: relative; width: 300px; height: 300px; left: -10px; top: 210px; }
+        .controls { margin-top: 50px; text-align: center; }
+        button { padding: 12px 30px; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; background: #333; color: white; margin: 0 5px; }
+    </style>
+</head>
+<body class="is-idle">
+    <div class="main-wrapper" id="character-group">
+        <div class="timer-wrapper">
+            <div class="timer-bg-top" id="topImage"></div>
+            <div class="timer-text" id="timer">01:00</div>
+        </div>
+        <div class="character-container" id="charBox">
+            <!-- 캐릭터 위쪽 영역에 빵파레 컨테이너 추가 -->
+            <div class="confetti-wrapper">
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+            </div>
+            <div class="container" id="startup-wrapper">
+                <img src="SW_SD/SW/body.png" class="face-part">
+                <img src="SW_SD/SW/book.png" class="face-part">
+                <div class="head-group" style="transform-origin: 180px 250px;">
+                    <img src="SW_SD/SW/head.png" id="face" class="face-part">
+                    <div class="rotatable-wrapper anim-eye-group">
+                        <img src="SW_SD/SW/eye.png" class="face-part" id="eyeOpen" style="transform-origin: 150px 200px;">
+                        <img src="SW_SD/SW/eye2.png" class="face-part" id="eyeClosed">
+                        <img src="SW_SD/SW/eye3.png" class="face-part" id="eyeFinished">
+                    </div>
+                    <img src="SW_SD/SW/mouse.png" class="face-part mouse-default">
+                    <img src="SW_SD/SW/mouse_3.png" class="face-part mouse-finished">
+                    <img src="SW_SD/SW/eyebrow.png" id="eyebrow" class="face-part">
+                    <img src="SW_SD/SW/glasses.png" id="glasses" class="face-part">
+                </div>
+                <div class="rotatable-wrapper anim-hand-l" style="transform-origin: 150px 200px;"><img src="SW_SD/SW/hand_L.png" class="face-part"></div>
+                <div class="rotatable-wrapper anim-hand-r" style="transform-origin: 200px 290px;"><img src="SW_SD/SW/hand_R.png" class="face-part"></div>
+            </div>
+        </div>
+    </div>
+    <div class="controls">
+        <input type="number" id="minInput" value="1" min="1" max="60" style="padding:10px; width:50px;"> 분
+        <button onclick="toggleTimer()" id="toggleBtn">시작</button>
+        <button onclick="resetTimer()">초기화</button>
+    </div>
+    <script>
+        let TOTAL_TIME = 60, timeLeft = 60, isRunning = false;
+        let elapsedSinceLastStretch = 0; 
+        const STRETCH_INTERVAL = 300; 
+
+        const charGroup = document.getElementById('character-group');
+        const charBox = document.getElementById('charBox');
+        const startupWrapper = document.getElementById('startup-wrapper');
+        const faceImg = document.getElementById('face');
+        const toggleBtn = document.getElementById('toggleBtn');
+        
+        function updateView() {
+            const m = Math.floor(timeLeft / 60), s = Math.floor(timeLeft % 60);
+            document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            document.getElementById('topImage').style.mask = `conic-gradient(#000 ${(timeLeft / TOTAL_TIME) * 100}%, transparent 0)`;
+        }
+        
+        function triggerStretch() {
+            charBox.classList.add('is-stretching');
+            setTimeout(() => {
+                charBox.classList.remove('is-stretching');
+            }, 2500); 
+        }
+
+        function animateTimer() {
+            if (!isRunning) return;
+            const delta = 0.016; 
+            timeLeft -= delta; 
+            elapsedSinceLastStretch += delta; 
+
+            if (TOTAL_TIME >= 600 && elapsedSinceLastStretch >= STRETCH_INTERVAL && timeLeft > 0) {
+                triggerStretch();
+                elapsedSinceLastStretch = 0; 
+            }
+
+            if (timeLeft <= 0) { 
+                timeLeft = 0; isRunning = false; toggleBtn.textContent = "시작"; 
+                charGroup.classList.remove('is-looping');
+                startupWrapper.classList.remove('anim-startup');
+                charBox.classList.remove('is-stretching');
+                
+                charBox.classList.add('is-finished-intro');
+                
+                setTimeout(() => {
+                    if (!isRunning) { 
+                        charBox.classList.remove('is-finished-intro');
+                        charBox.classList.add('is-finished-loop');
+                    }
+                }, 800);
+            }
+            updateView();
+            requestAnimationFrame(animateTimer);
+        }
+        
+        faceImg.addEventListener('animationend', () => {
+            if (isRunning) {
+                startupWrapper.classList.remove('anim-startup');
+                charGroup.classList.add('is-looping');
+            }
+        });
+        
+        window.toggleTimer = () => {
+            isRunning = !isRunning;
+            toggleBtn.textContent = isRunning ? "일시정지" : "시작";
+            if (isRunning) { 
+                document.body.classList.remove('is-idle');
+                charBox.classList.remove('is-finished-intro');
+                charBox.classList.remove('is-finished-loop');
+                startupWrapper.classList.add('anim-startup'); 
+                animateTimer(); 
+            } else { 
+                charGroup.classList.remove('is-looping'); 
+                startupWrapper.classList.remove('anim-startup'); 
+                charBox.classList.remove('is-stretching');
+                charBox.classList.remove('is-finished-intro');
+                charBox.classList.remove('is-finished-loop');
+                document.body.classList.add('is-idle');
+            }
+        };
+        
+        window.resetTimer = () => {
+            isRunning = false; 
+            timeLeft = parseInt(document.getElementById('minInput').value) * 60;
+            TOTAL_TIME = timeLeft; 
+            toggleBtn.textContent = "시작";
+            elapsedSinceLastStretch = 0; 
+            charGroup.classList.remove('is-looping');
+            startupWrapper.classList.remove('anim-startup');
+            charBox.classList.remove('is-stretching');
+            charBox.classList.remove('is-finished-intro');
+            charBox.classList.remove('is-finished-loop');
+            document.body.classList.add('is-idle');
+            updateView();
+        };
+    </script>
+</body>
+</html>
