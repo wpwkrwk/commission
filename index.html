@@ -226,9 +226,18 @@
         .character-container { transform: scale(0.75); transform-origin: center; margin-left: -50px; position: relative; z-index: 1;}
         .main-wrapper { display: flex; align-items: center; }
         
-        .timer-wrapper { width: 500px; height: 500px; border: 13px solid #1b1c2f; border-radius: 50%; overflow: hidden; position: relative; left: 130px; }
-        
-        /* 💡 타이머 뒷배경 고정 및 크기 조절 레이어 추가 */
+        .timer-wrapper { 
+            width: 550px; 
+            height: 550px; 
+            border: 14px solid #1b1c2f; 
+            border-radius: 50%; 
+            overflow: hidden; 
+            position: relative; 
+            left: 160px; 
+            z-index: 1; 
+        }
+
+        /* 타이머 뒷배경 고정 레이어 */
         .timer-bg-base {
             position: absolute;
             top: 0;
@@ -236,14 +245,26 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background-image: url('시계배경1_2.jpg'); /* 원하시는 이미지 경로로 수정하세요 */
-            background-size: 120% 120%; /* 이미지 크기 조절 (120%, 130% 등으로 조절 가능) */
-            background-position: center; /* 항상 정중앙에 고정 */
+            background-image: url('시계배경_2.jpg'); 
+            background-size: 113% 113%; /* 👈 이 크기로 고정됩니다 (필요하면 130% 등으로 조절 가능) */
+            background-position: center; /* 항상 정중앙에 위치 */
             background-repeat: no-repeat;
             z-index: 0;
         }
-
-        .timer-bg-top { position: absolute; width: 500px; height: 500px; border-radius: 50%; background-image: url('시계배경1_1.png'); background-size: cover; z-index: 1; }
+        /* 시간이 줄어들며 깎이는 게이지 레이어 */
+        .timer-bg-top { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-image: url('시계배경.jpg'); 
+            background-size: 113% 113%; /* 👈 이 크기로 고정됩니다 (필요하면 130% 등으로 조절 가능) */
+            background-position: center; /* 항상 정중앙에 위치 */
+            background-repeat: no-repeat;
+            z-index: 1; 
+        }
         .timer-text { position: absolute; width: 500px; height: 500px; display: flex; justify-content: center; align-items: center; font-size: 5rem; font-weight: 700; color: #5b5b5b; z-index: 2; }
         .container { position: relative; width: 300px; height: 300px; left: -10px; top: 210px; }
         .controls { margin-top: 50px; text-align: center; }
